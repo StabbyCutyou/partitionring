@@ -74,11 +74,9 @@ func (p *PartitionRing) scheduleExpiration() {
 		select {
 		// Check to see if we have a tick
 		case <-p.expirationTicker.C:
-			//queues.syncConfig(cfg)
 			// Check to see if we've been stopped
 			p.expireAny()
 		case <-p.stopExpiration:
-			//queues.syncScheduler.Stop()
 			// Wait for the all-clear to start again
 			<-p.restartExpiration
 		}
@@ -122,7 +120,6 @@ func (p *PartitionRing) ReserveNext() (int64, int64, error) {
 	// trying to fill from 0 to N, meaning at first  values near N will go unprioritized
 	// This also means, due to the current design, the partitions will occasionally be larger than
 	// anticipated, and will not self-balance until they expire.
-	//log.Println("RESERVING")
 	size := len(p.data)
 	// if we're full up, scram
 	if size == 0 {
@@ -130,7 +127,6 @@ func (p *PartitionRing) ReserveNext() (int64, int64, error) {
 		// partitionStep-1 because we want pS # of values, not last boundary + pS
 		obj := [3]int64{p.lowerLimit, p.partitionStep - 1, time.Now().Add(p.partitionAge).Unix()}
 		p.data = append(p.data, obj)
-		//log.Print("EMPTY", obj)
 		return obj[0], obj[1], nil
 	}
 
@@ -143,7 +139,6 @@ func (p *PartitionRing) ReserveNext() (int64, int64, error) {
 				// if we've hit the end of the list, or if its the first element and there is only one element
 				// we know theres room for it, so append it right after the only element
 				obj := [3]int64{p.data[i][1] + 1, p.data[i][1] + p.partitionStep, time.Now().Add(p.partitionAge).Unix()}
-				//log.Print("THIS ONE IS WEIRD", obj)
 				p.data = append(p.data, obj)
 				return obj[0], obj[1], nil
 			} else if p.data[i][0] != p.lowerLimit {
@@ -156,7 +151,6 @@ func (p *PartitionRing) ReserveNext() (int64, int64, error) {
 					newUpperBound = p.data[i][0] - 1
 				}
 				obj := [3]int64{p.lowerLimit, newUpperBound, time.Now().Add(p.partitionAge).Unix()}
-				//log.Print("ROOM IN FRONT", obj)
 				// Add the new one infront of everything else
 				p.data = append([][3]int64{obj}, p.data[:]...)
 				return obj[0], obj[1], nil
@@ -174,7 +168,6 @@ func (p *PartitionRing) ReserveNext() (int64, int64, error) {
 				upperBound = p.data[i][0] - 1
 			}
 			obj := [3]int64{lowerBound, upperBound, time.Now().Add(p.partitionAge).Unix()}
-			//log.Print("FOUND LEFT NEIGHBOR OPEN", obj)
 			// Insert the data at position i+1
 			// This above is wrong - we should insert at i-1:
 			// if i is 3, we found space between 2 and 3, so we create a new entry for the space between 2 and 3
@@ -201,7 +194,6 @@ func (p *PartitionRing) ReserveNext() (int64, int64, error) {
 		newUpper = p.upperLimit
 	}
 	obj := [3]int64{newLower, newUpper, time.Now().Add(p.partitionAge).Unix()}
-	//log.Print("VERY END OPEN", obj)
 	p.data = append(p.data, obj)
 	return obj[0], obj[1], nil
 
@@ -209,6 +201,7 @@ func (p *PartitionRing) ReserveNext() (int64, int64, error) {
 	return 0, 0, ErrCouldNotReservePartition
 }
 
+// ExpireRange is
 func (p *PartitionRing) ExpireRange(lowerBound int64, upperBound int64) int {
 	// Freeze time so we don't corrupt anything
 	p.Lock()
@@ -297,7 +290,7 @@ func (p *PartitionRing) expireAny() {
 		if obj[2] < t {
 			d = append(d, obj)
 		} else {
-			//log.Printf("EXPIRING NATURALLY: %d, %d - %d", obj[0], obj[1], time.Now().UnixNano())
+			// Let it expire
 		}
 	}
 	p.data = d
