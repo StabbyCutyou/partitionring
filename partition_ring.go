@@ -31,6 +31,12 @@ var ErrCouldNotReservePartition = errors.New("Could not reserve partition")
 // MaxPartitionUpperBound is
 var MaxPartitionUpperBound int64 = math.MaxInt64
 
+// PartitionEntry is an array of 3 int64 values
+// 0: lowerBound: int64
+// 1: upperBound: int64
+// 2: expirytime: int64
+type PartitionEntry [3]int64
+
 // PartitionRing is
 type PartitionRing struct {
 	partitionAge time.Duration
@@ -42,20 +48,14 @@ type PartitionRing struct {
 	upperLimit        int64
 	partitionStep     int64
 	sync.RWMutex
-	data [][3]int64
+	data []PartitionEntry
 }
 
-// PartitionEntry - Is this a good idea? (both the custom type and the approach)
-// 0: lowerBound: int64
-// 1: upperBound: int64
-// 2: expirytime: int64
-type PartitionEntry [3]int64
-
-// NewR is
+// New is
 func New(lowerLimit int64, upperLimit int64, defaultStep int64, partitionAge time.Duration) *PartitionRing {
 	p := &PartitionRing{
 		partitionAge:      partitionAge,
-		data:              make([][3]int64, 0),
+		data:              make([]PartitionEntry, 0),
 		expirationTicker:  time.NewTicker(partitionAge),
 		stopExpiration:    make(chan bool, 1),
 		restartExpiration: make(chan bool, 1),
@@ -138,7 +138,7 @@ func (p *PartitionRing) ReserveNext() (int64, int64, error) {
 			if p.data[i][0] == p.lowerLimit && size == 1 {
 				// if we've hit the end of the list, or if its the first element and there is only one element
 				// we know theres room for it, so append it right after the only element
-				obj := [3]int64{p.data[i][1] + 1, p.data[i][1] + p.partitionStep, time.Now().Add(p.partitionAge).Unix()}
+				obj := PartitionEntry{p.data[i][1] + 1, p.data[i][1] + p.partitionStep, time.Now().Add(p.partitionAge).Unix()}
 				p.data = append(p.data, obj)
 				return obj[0], obj[1], nil
 			} else if p.data[i][0] != p.lowerLimit {
@@ -150,9 +150,9 @@ func (p *PartitionRing) ReserveNext() (int64, int64, error) {
 				if newUpperBound > p.data[i][0]-1 {
 					newUpperBound = p.data[i][0] - 1
 				}
-				obj := [3]int64{p.lowerLimit, newUpperBound, time.Now().Add(p.partitionAge).Unix()}
+				obj := PartitionEntry{p.lowerLimit, newUpperBound, time.Now().Add(p.partitionAge).Unix()}
 				// Add the new one infront of everything else
-				p.data = append([][3]int64{obj}, p.data[:]...)
+				p.data = append([]PartitionEntry{obj}, p.data[:]...)
 				return obj[0], obj[1], nil
 			} else {
 				// NOOP
@@ -172,7 +172,7 @@ func (p *PartitionRing) ReserveNext() (int64, int64, error) {
 			// This above is wrong - we should insert at i-1:
 			// if i is 3, we found space between 2 and 3, so we create a new entry for the space between 2 and 3
 			// making the current object at i end up at i + 1
-			p.data = append(p.data[:i], append([][3]int64{obj}, p.data[i:]...)...)
+			p.data = append(p.data[:i], append([]PartitionEntry{obj}, p.data[i:]...)...)
 			return obj[0], obj[1], nil
 		} else {
 			// NOOP
@@ -209,7 +209,7 @@ func (p *PartitionRing) ExpireRange(lowerBound int64, upperBound int64) int {
 	// As in expireAny, i'd much prefer to use slice powers to do something efficient here
 	// put i'm concerned since I want to physically remove the item, not just make a new
 	// pointer to a subspace in the original array
-	d := make([][3]int64, 0)
+	d := make([]PartitionEntry, 0)
 	removed := 0
 	remove_until_finished := false
 	for i, obj := range p.data {
@@ -283,7 +283,7 @@ func (p *PartitionRing) expireAny() {
 	// We don't want to iterate over something and pop from it, so we'll build a replace
 	// dataset, and put it back in the originals place... wise? i want for there to be a more
 	// efficient way to do this, but don't wanna write to the array will i iterate it...
-	d := make([][3]int64, 0)
+	d := make([]PartitionEntry, 0)
 	// I'd like to use i as a pivot point, and :slice: my way around this...
 	for _, obj := range p.data {
 		// If the expiration date is less than the current time
@@ -302,6 +302,6 @@ func (p *PartitionRing) Print() {
 	defer p.Unlock()
 
 	for _, obj := range p.data {
-		log.Printf("%d", obj)
+		log.Printf("%d\t%d\t%d", obj[0], obj[1], obj[2])
 	}
 }
