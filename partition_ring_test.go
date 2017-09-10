@@ -9,7 +9,6 @@ import (
 func TestPartitionRing(t *testing.T) {
 	step := int64(922337203685477579)
 	p := New(0, MaxPartitionUpperBound, step, 2*time.Second)
-	//log.Printf("%d", p.partitionStep)
 	for i := int64(0); i < 11; i++ {
 		lowerBound, upperBound, err := p.ReserveNext()
 
@@ -20,8 +19,6 @@ func TestPartitionRing(t *testing.T) {
 			upperShould = p.partitionStep - 1
 		} else {
 			previousUpperShould := i * p.partitionStep
-			//previousUpperShould += -i
-			//log.Printf("PREVIOUS UPPER: %d", previousUpperShould)
 			lowerShould = previousUpperShould + i
 			upperShould = lowerShould + p.partitionStep
 			// The first one is at 1 * partitionStep, effectively prior upperBound + 1
@@ -38,8 +35,6 @@ func TestPartitionRing(t *testing.T) {
 				upperShould += -2
 			}
 		}
-		//log.Printf("%d , %d", lowerShould-lowerBound, upperShould-upperBound)
-		//log.Printf("%d - %d VS %d - %d", lowerBound, upperBound, lowerShould, upperShould)
 		if lowerBound != lowerShould || upperBound != upperShould || err != nil {
 			t.Errorf("FAIL %d != %d || %d != %d || %s", lowerBound, lowerShould, upperBound, upperShould, err)
 		}
@@ -60,7 +55,6 @@ func TestErrorOnFullPartitionRing(t *testing.T) {
 
 func TestExpiration(t *testing.T) {
 	p := New(0, MaxPartitionUpperBound, 922337203685477579, 1*time.Second)
-	//log.Printf("%d", p.partitionStep)
 	for i := int64(0); i < 10; i++ {
 		p.ReserveNext()
 	}
@@ -105,8 +99,8 @@ func TestExpireRange2(t *testing.T) {
 	lowerBound2 := int64(4611686018427387898)
 	upperBound2 := lowerBound2 + step
 
-	res := p.ExpireRange(lowerBound, upperBound)
-	res = p.ExpireRange(lowerBound2, upperBound2)
+	_ = p.ExpireRange(lowerBound, upperBound)
+	res := p.ExpireRange(lowerBound2, upperBound2)
 	newLower, newUpper, err := p.ReserveNext()
 	if newLower != lowerBound || newUpper != upperBound || err != nil {
 		t.Errorf("Didn't work: %d, %d, %d, %s", newLower, newUpper, res, err)
@@ -235,7 +229,6 @@ func TestExpireRangeConcurrent(t *testing.T) {
 				return
 			default:
 				/*low, up, _ := */ p.ReserveNext()
-				//t.Logf("Reserving %d,%d = %d", low, up, time.Now().UnixNano())
 				time.Sleep(85 * time.Microsecond)
 			}
 		}
@@ -248,7 +241,6 @@ func TestExpireRangeConcurrent(t *testing.T) {
 				return
 			default:
 				randy := rand.Int() % 10
-				//t.Logf("Popping %d,%d - %d", parts[randy][0], parts[randy][1], time.Now().UnixNano())
 				pr.ExpireRange(parts[randy][0], parts[randy][1])
 				time.Sleep(25 * time.Microsecond)
 			}
@@ -263,7 +255,6 @@ func TestExpireRangeConcurrent(t *testing.T) {
 			default:
 				p.ReserveNext()
 				/*low, up, _ := */ //p.Print()
-				//t.Logf("Reserving %d,%d = %d", low, up, time.Now().UnixNano())
 				time.Sleep(150 * time.Microsecond)
 			}
 		}

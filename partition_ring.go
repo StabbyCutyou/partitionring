@@ -196,9 +196,6 @@ func (p *PartitionRing) ReserveNext() (int64, int64, error) {
 	obj := [3]int64{newLower, newUpper, time.Now().Add(p.partitionAge).Unix()}
 	p.data = append(p.data, obj)
 	return obj[0], obj[1], nil
-
-	// obligatory shouldn't get here comment
-	return 0, 0, ErrCouldNotReservePartition
 }
 
 // ExpireRange is
@@ -211,11 +208,11 @@ func (p *PartitionRing) ExpireRange(lowerBound int64, upperBound int64) int {
 	// pointer to a subspace in the original array
 	d := make([]PartitionEntry, 0)
 	removed := 0
-	remove_until_finished := false
+	removeUntilFinished := false
 	for i, obj := range p.data {
 		// Cheat - check the easy case first, if we luck out and find out
 		// exit fast
-		removed_node := false
+		removedNode := false
 		if lowerBound == obj[0] && upperBound == obj[1] {
 			// The entire range matched. Do not carve it or re-add it to the set
 
@@ -241,8 +238,8 @@ func (p *PartitionRing) ExpireRange(lowerBound int64, upperBound int64) int {
 			// nodes to remove before we hit the upperBound. Until that hapens, we'll remove every node
 			// unless the upperBound is between this range as well
 
-			remove_until_finished = true
-			removed_node = true
+			removeUntilFinished = true
+			removedNode = true
 		}
 
 		if obj[1] >= upperBound && upperBound >= obj[0] {
@@ -264,7 +261,7 @@ func (p *PartitionRing) ExpireRange(lowerBound int64, upperBound int64) int {
 
 		}
 
-		if removed_node == true || remove_until_finished {
+		if removedNode || removeUntilFinished {
 			removed++
 		} else {
 			d = append(d, obj)
@@ -287,10 +284,9 @@ func (p *PartitionRing) expireAny() {
 	// I'd like to use i as a pivot point, and :slice: my way around this...
 	for _, obj := range p.data {
 		// If the expiration date is less than the current time
+		// Let it expire otherwise
 		if obj[2] < t {
 			d = append(d, obj)
-		} else {
-			// Let it expire
 		}
 	}
 	p.data = d
